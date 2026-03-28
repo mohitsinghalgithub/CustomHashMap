@@ -9,8 +9,11 @@ HashMap<T, U>::HashMap(int capacity):m_capacity(capacity)
 template<typename T, typename U>
 int HashMap<T, U>::hashFunction(const T& key)
 {
-    
-    return false;
+    std::hash<T> hasher;
+
+    size_t hashCode = hasher(key);
+
+    return hashCode % m_capacity;
 }
 
 template<typename T, typename U>
