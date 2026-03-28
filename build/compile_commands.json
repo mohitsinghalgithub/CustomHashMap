@@ -1,8 +1,0 @@
-[
-{
-  "directory": "C:/dev/CustomHashMap/build",
-  "command": "C:/msys64/ucrt64/bin/g++.exe   -g -o CMakeFiles/HashMap.dir/HashMap.cpp.obj -c C:/dev/CustomHashMap/HashMap.cpp",
-  "file": "C:/dev/CustomHashMap/HashMap.cpp",
-  "output": "CMakeFiles/HashMap.dir/HashMap.cpp.obj"
-}
-]
