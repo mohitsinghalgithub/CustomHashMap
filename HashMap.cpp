@@ -19,11 +19,26 @@ int HashMap<T, U>::hashFunction(const T& key)
 template<typename T, typename U>
 std::pair<typename HashMap<T, U>::iterator, bool> HashMap<T, U>::insert(const T& key, const U& value)
 {
-    return {nullptr, true};
+    int index = hashFunction(key);
+    for(iterator itr = m_hashMap[index].begin(); itr != m_hashMap[index].end(); itr++)
+    {
+        if((*itr)->m_key == key)
+        {
+            return {itr, false};
+        }
+    }
+    m_hashMap[index].emplace_back(make_unique<Data>(key, value));
+
+    return {(m_hashMap[index].end())--, true};
 }
 
 int main()
 {
+    HashMap<string, int> hashmap;
+
+    auto ret = hashmap.insert("hello", 23);
+
+    
     return 0;
 }
 

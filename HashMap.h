@@ -12,8 +12,10 @@ class HashMap
 {
     struct Data
     {
-        T key;
-        U value;
+        T m_key;
+        U m_value;
+
+        Data (T key, U value):m_key(key), m_value(value){}
     };
     using key_type = T;
     using value_type = U;
