@@ -10,23 +10,25 @@ using namespace std;
 template<typename T, typename U>
 class HashMap
 {
-    struct Data
-    {
-        T m_key;
-        U m_value;
-
-        Data (T key, U value):m_key(key), m_value(value){}
-    };
+    using Data = std::pair<T, U>;
     using key_type = T;
     using value_type = U;
 
     int m_capacity;
-    vector<list<unique_ptr<Data>>> m_hashMap;
+    vector<list<Data>> m_hashMap;
 public:
-    using iterator = typename list<std::unique_ptr<Data>>::iterator;
+    using iterator = typename list<Data>::iterator;
     HashMap(int capacity = 10);
     std::pair<iterator, bool> insert(const T& key, const U& value);
-
+    template<typename ... Args>
+    std::pair<iterator, bool> emplace(Args &&... args);
+    void erase(const T & key);
     int hashFunction(const key_type & key);
-
+    U & operator[](const T & key);
+    template<typename TupleKey, typename TupleValue>
+    T extract_key(std::piecewise_construct_t,
+                        TupleKey&& key_tuple,
+                        TupleValue&&);
+    const T& extract_key(const T & key, const U& value);
+    const T& extract_key(const std::pair<T, U>& pair);
 };
