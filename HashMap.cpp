@@ -1,8 +1,9 @@
 #include "HashMap.h"
 #include <unordered_map>
+#include <unordered_set>
 
 template<typename T, typename U>
-HashMap<T, U>::HashMap(int capacity):m_capacity(capacity), m_hashMap(capacity)
+HashMap<T, U>::HashMap(int capacity):m_capacity(capacity), m_bucket(capacity), num_element(0), max_load_factor(1)
 {
     
 }
@@ -18,20 +19,46 @@ int HashMap<T, U>::hashFunction(const T& key)
 }
 
 template<typename T, typename U>
+void HashMap<T, U>::rehashBucket()
+{
+    auto rehashNeeded = [&](){
+        return max_load_factor < (static_cast<double>(num_element/m_bucket.size()));
+    };
+    if(!rehashNeeded())
+        return;
+    m_capacity = m_capacity * 2;
+    vector<list<Data>> newBucket(m_capacity);
+
+    for(auto & bucket: m_bucket)
+    {
+        for(auto & elem : bucket)
+        {
+            int index = hashFunction(elem.first);
+            newBucket[index].emplace_back(std::move(elem));
+        }
+    }
+
+    m_bucket = std::move(newBucket);
+}
+
+template<typename T, typename U>
 std::pair<typename HashMap<T, U>::iterator, bool> HashMap<T, U>::insert(const T& key, const U& value)
 {
     int index = hashFunction(key);
 
-    for(iterator itr = m_hashMap[index].begin(); itr != m_hashMap[index].end(); itr++)
+    for(iterator itr = m_bucket[index].begin(); itr != m_bucket[index].end(); itr++)
     {
         if(itr->first == key)
         {
             return {itr, false};
         }
     }
-    m_hashMap[index].emplace_back(key, value);
+    rehashBucket();
+    index = hashFunction(key);
+    m_bucket[index].emplace_back(key, value);
+    num_element++;
 
-    return {(m_hashMap[index].end())--, true};
+    return {(m_bucket[index].end())--, true};
 }
 
 template<typename T, typename U>
@@ -39,13 +66,14 @@ void HashMap<T, U>::erase(const T & key)
 {
     const auto index = hashFunction(key);
 
-    if(m_hashMap[index].empty())
+    if(m_bucket[index].empty())
         return;
-    for(iterator itr = m_hashMap[index].begin(); itr != m_hashMap[index].end(); itr++)
+    for(iterator itr = m_bucket[index].begin(); itr != m_bucket[index].end(); itr++)
     {
         if(itr->first == key)
         {
-            m_hashMap[index].erase(itr);
+            m_bucket[index].erase(itr);
+            num_element--;
             break;
         }
     }
@@ -82,15 +110,15 @@ T HashMap<T, U>::extract_key(std::piecewise_construct_t,
 
 template<typename T, typename U>
 template<typename... Args>
-pair<typename HashMap<T, U>::iterator, bool> HashMap<T, U>::emplace(Args&&... args)
+pair<typename HashMap<T, U>::iterator, bool> HashMap<T, U>::try_emplace(Args&&... args)
 {
     T key = extract_key(std::forward<Args>(args)...);
 
-    const int index = hashFunction(key);
+    int index = hashFunction(key);
 
-    if(!m_hashMap[index].empty())
+    if(!m_bucket[index].empty())
     {
-        for(iterator itr = m_hashMap[index].begin(); itr != m_hashMap[index].end(); itr++)
+        for(iterator itr = m_bucket[index].begin(); itr != m_bucket[index].end(); itr++)
         {
             if(itr->first == key)
             {
@@ -98,19 +126,48 @@ pair<typename HashMap<T, U>::iterator, bool> HashMap<T, U>::emplace(Args&&... ar
             }
         }
     }
-    m_hashMap[index].emplace_back(std::forward<Args>(args)...);
-    auto it = m_hashMap[index].end();
+    rehashBucket();
+    index = hashFunction(key);
+    m_bucket[index].emplace_back(std::forward<Args>(args)...);
+    num_element++;
+    auto it = m_bucket[index].end();
+    return {--it, true};
+}
+
+template<typename T, typename U>
+template<typename ... Args>
+std::pair<typename HashMap<T, U>::iterator, bool> HashMap<T, U>::emplace(Args &&...args)
+{
+    std::pair<T, U> value(std::forward<Args>(args)...);
+
+    int index = hashFunction(value.first);
+
+    if(!m_bucket[index].empty())
+    {
+        for(iterator itr = m_bucket[index].begin(); itr != m_bucket[index].end(); itr++)
+        {
+            if(itr->first == value.first)
+            {
+                return {itr, false};
+            }
+        }
+    }
+    rehashBucket();
+    index = hashFunction(value.first);
+    m_bucket[index].emplace_back(std::move(value));
+    num_element++;
+    auto it = m_bucket[index].end();
     return {--it, true};
 }
 
 template<typename T, typename U>
 U & HashMap<T, U>::operator [](const T & key)
 {
-    const auto index = hashFunction(key);
+    auto index = hashFunction(key);
 
-    if(!m_hashMap[index].empty())
+    if(!m_bucket[index].empty())
     {
-        for(iterator itr = m_hashMap[index].begin(); itr != m_hashMap[index].end(); itr++)
+        for(iterator itr = m_bucket[index].begin(); itr != m_bucket[index].end(); itr++)
         {
             if(itr->first == key)
             {
@@ -118,8 +175,12 @@ U & HashMap<T, U>::operator [](const T & key)
             }
         }
     }
-    m_hashMap[index].emplace_back(key, U());
-    return (m_hashMap[index].begin())->second;
+    rehashBucket();
+    index = hashFunction(key);
+    m_bucket[index].emplace_back(key, U());
+    num_element++;
+    auto it = m_bucket[index].end();
+    return (--it)->second;
 }
 
 int main()
@@ -142,12 +203,19 @@ int main()
     hashmap["hello"] = 10;
     std::cout<<hashmap["hello"] << endl;
 
-    auto ret1 = hashmap.emplace("hello9", 30);
-    std::cout<<ret1.first->second;
+    auto ret1 = hashmap.try_emplace("hello9", 30);
+    std::cout<<ret1.first->second << std::endl;
 
-    std::unordered_map<std::string, std::pair<int, int>  > hashmap3;
+    HashMap<std::string, std::pair<int, int>  > hashmap3;
 
 
-    hashmap3.emplace(std::piecewise_construct, std::forward_as_tuple("hello"), std::forward_as_tuple( 3, 4));
+    hashmap3.try_emplace(std::piecewise_construct, std::forward_as_tuple("hello"), std::forward_as_tuple( 3, 4));
+    cout<<hashmap3["hello"].first <<"  "<< hashmap3["hello"].second << std::endl;
+
+    hashmap3.emplace(std::piecewise_construct, std::forward_as_tuple("hello3"), std::forward_as_tuple( 3, 4));
+    cout<<hashmap3["hello3"].first <<"  "<< hashmap3["hello3"].second << std::endl;
+
+   
+
     return 0;
 }

@@ -15,11 +15,15 @@ class HashMap
     using value_type = U;
 
     int m_capacity;
-    vector<list<Data>> m_hashMap;
+    vector<list<Data>> m_bucket;
+    int num_element;
+    double max_load_factor;
 public:
     using iterator = typename list<Data>::iterator;
-    HashMap(int capacity = 10);
+    HashMap(int capacity = 1);
     std::pair<iterator, bool> insert(const T& key, const U& value);
+    template<typename ... Args>
+    std::pair<iterator, bool> try_emplace(Args &&... args);
     template<typename ... Args>
     std::pair<iterator, bool> emplace(Args &&... args);
     void erase(const T & key);
@@ -31,4 +35,5 @@ public:
                         TupleValue&&);
     const T& extract_key(const T & key, const U& value);
     const T& extract_key(const std::pair<T, U>& pair);
+    void rehashBucket();
 };
